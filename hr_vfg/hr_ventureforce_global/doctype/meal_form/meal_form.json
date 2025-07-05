@@ -1,0 +1,299 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:MF-{YY}-{MM}-{DD}-{###}",
+ "creation": "2024-10-10 17:01:29.622576",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "posting_date",
+  "column_break_lfcd",
+  "posting_time",
+  "column_break_odwe",
+  "date",
+  "column_break_reuc",
+  "meal_type",
+  "column_break_enod",
+  "meal_provider",
+  "section_break_kxid",
+  "detail",
+  "section_break_ywrg",
+  "detail_meal",
+  "section_break_cjcj",
+  "service_charges_ct",
+  "total_section",
+  "column_break_relc",
+  "total_contractor",
+  "column_break_mgno",
+  "total_employees",
+  "column_break_rdou",
+  "total_qty",
+  "column_break_dlme",
+  "total_contract_amount",
+  "column_break_mumf",
+  "total_employee_amount",
+  "column_break_krvl",
+  "total_amount",
+  "service_total_section",
+  "service_qty",
+  "column_break_uioa",
+  "service_amount",
+  "billing_section",
+  "invoiced",
+  "column_break_myhc",
+  "invoiced_amount",
+  "remarks_section",
+  "remarks",
+  "section_break_lukz",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_lukz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Meal Form",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "default": "Now",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_lfcd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Now",
+   "fieldname": "posting_time",
+   "fieldtype": "Time",
+   "label": "Posting Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_reuc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "meal_type",
+   "fieldtype": "Link",
+   "label": "Service Type",
+   "options": "Meal Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_kxid",
+   "fieldtype": "Section Break",
+   "label": "Contractor"
+  },
+  {
+   "fieldname": "detail",
+   "fieldtype": "Table",
+   "label": "Contractor Detail",
+   "options": "Detail"
+  },
+  {
+   "fieldname": "section_break_ywrg",
+   "fieldtype": "Section Break",
+   "label": "Employee"
+  },
+  {
+   "fieldname": "detail_meal",
+   "fieldtype": "Table",
+   "label": "Employee Detail",
+   "options": "Detail Meal"
+  },
+  {
+   "fieldname": "remarks_section",
+   "fieldtype": "Section Break",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Remarks",
+   "reqd": 1
+  },
+  {
+   "fieldname": "meal_provider",
+   "fieldtype": "Link",
+   "label": "Service Provider",
+   "link_filters": "[[\"Meal Provider\",\"active\",\"=\",1]]",
+   "options": "Meal Provider",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_enod",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_contractor",
+   "fieldtype": "Int",
+   "label": "Total Contractor Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_employees",
+   "fieldtype": "Int",
+   "label": "Total Employees Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_section",
+   "fieldtype": "Section Break",
+   "label": "Meal Total"
+  },
+  {
+   "fieldname": "total_qty",
+   "fieldtype": "Int",
+   "label": "Total Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_amount",
+   "fieldtype": "Int",
+   "label": "Total Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_krvl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_mgno",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_rdou",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date"
+  },
+  {
+   "fieldname": "column_break_odwe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_dlme",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_contract_amount",
+   "fieldtype": "Float",
+   "label": "Total Contract Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_employee_amount",
+   "fieldtype": "Float",
+   "label": "Total Employee Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_mumf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_cjcj",
+   "fieldtype": "Section Break",
+   "label": "Service"
+  },
+  {
+   "fieldname": "service_charges_ct",
+   "fieldtype": "Table",
+   "label": "Service Detail",
+   "options": "Service Charges CT"
+  },
+  {
+   "fieldname": "service_total_section",
+   "fieldtype": "Section Break",
+   "label": "Service Total"
+  },
+  {
+   "fieldname": "service_qty",
+   "fieldtype": "Float",
+   "label": "Total Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_uioa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "service_amount",
+   "fieldtype": "Float",
+   "label": "Total Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_relc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "billing_section",
+   "fieldtype": "Section Break",
+   "label": "Billing"
+  },
+  {
+   "default": "0",
+   "fieldname": "invoiced",
+   "fieldtype": "Check",
+   "label": "Invoiced"
+  },
+  {
+   "fieldname": "column_break_myhc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "invoiced_amount",
+   "fieldtype": "Float",
+   "label": "Invoiced Amount"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2024-12-26 16:26:11.837226",
+ "modified_by": "Administrator",
+ "module": "HR VentureForce Global",
+ "name": "Meal Form",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}
