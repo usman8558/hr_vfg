@@ -1105,7 +1105,7 @@ class EmployeeAttendance(Document):
                     #     data.late = 0
 
                     #LATE SLAB CODE (USMAN)
-                    if day_data and day_data.late_slab:  # Removed data.late condition
+                    if day_data and day_data.late_slab and data.shift:  # Removed data.late condition
                         try:
                             lsm = frappe.get_doc("Late Slab", day_data.late_slab)
                             
@@ -1203,10 +1203,25 @@ class EmployeeAttendance(Document):
 
                         if first_in_time >= late_mark and first_in_time < half_day_time:
                             data.late = 1
-                            
+                            if not day.shift:
+                                # Calculate late_coming_duration based on the chosen condition
+                                if day_data.calculate_late_hours == "Late Mark":
+                                    late_coming_duration = first_in_time - late_mark
+                                else:
+                                    late_coming_duration = first_in_time - day_data.start_time
+
+                                # Ensure late_coming_duration is non-negative
+                                if late_coming_duration < timedelta(0):
+                                    late_coming_duration = timedelta(0)  # Set to zero for early arrival
+
+                                # Extract hours, minutes, and seconds
+                                hours, remainder = divmod(late_coming_duration.total_seconds(), 3600)
+                                minutes, seconds = divmod(remainder, 60)
+
+                                # Format as `hh:mm:ss` and set `late_coming_hours` field
+                                data.late_coming_hours = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
                         else:
                             data.late = 0
-                            # data.late_coming_hours = "00:00:00"
 
                     # if last >= late_mark and first_in_time < half_day_time:
                     #     data.early = 1
