@@ -554,7 +554,6 @@ class EmployeeAttendance(Document):
             first_out_time = timedelta(hours=1,minutes=0,seconds=0)
             data.late_sitting = None
             data.additional_hours = None
-            data.late_coming_hours = None
             data.early_going_hours = None
             data.early = 0
             data.absent = 0
@@ -1104,27 +1103,110 @@ class EmployeeAttendance(Document):
                     #     data.late = 0
                     # if data.late1 == 1:  # This is the correct way to check for late1 in the child table data
                     #     data.late = 0
-                    if first_in_time >= late_mark and first_in_time < half_day_time:
-                        data.late = 1
-                        # Calculate late_coming_duration based on the chosen condition
-                        if day_data.calculate_late_hours == "Late Mark":
-                            late_coming_duration = first_in_time - late_mark
+
+                    #LATE SLAB CODE (USMAN)
+                    if day_data and day_data.late_slab:  # Removed data.late condition
+                        try:
+                            lsm = frappe.get_doc("Late Slab", day_data.late_slab)
+                            
+                            # Handle grace period
+                            grace_minutes = 0
+                            if hasattr(lsm, 'late_slab_minutes') and lsm.late_slab_minutes:
+                                grace_minutes = int(lsm.late_slab_minutes)
+                            elif hasattr(lsm, 'calculate_late_hours_after') and lsm.calculate_late_hours_after:
+                                grace_minutes = int(float(lsm.calculate_late_hours_after) * 60)
+                            
+                            # DIRECTLY CALCULATE DIFFERENCE - check if check_in_1 > shift_in
+                            if data.check_in_1 and data.shift_in:
+                                # Convert check_in_1 and shift_in to datetime objects
+                                check_in_time = datetime.strptime(data.check_in_1, "%H:%M:%S")
+                                shift_in_time = datetime.strptime(data.shift_in, "%H:%M:%S")
+                                
+                                # Calculate difference ONLY if check_in_1 > shift_in
+                                if check_in_time > shift_in_time:
+                                    if day_data.calculate_late_hours == "Late Mark":
+                                        # Use late_mark instead of shift_in if configured
+                                        late_mark_time = datetime.strptime(str(late_mark), "%H:%M:%S")
+                                        late_coming_duration = check_in_time - late_mark_time
+                                    else:
+                                        late_coming_duration = check_in_time - shift_in_time
+                                    
+                                    # Ensure late_coming_duration is non-negative
+                                    if late_coming_duration < timedelta(0):
+                                        late_coming_duration = timedelta(0)
+                                    
+                                    late_coming_timedelta = late_coming_duration
+                                    
+                                    # Apply grace period only if late time exceeds threshold
+                                    if late_coming_timedelta > timedelta(hours=0, minutes=grace_minutes):
+                                        countable_late_time = late_coming_timedelta - timedelta(hours=0, minutes=grace_minutes)
+                                        
+                                        # Slab calculation logic
+                                        prev_hours = None
+                                        l_counted_hours = timedelta(0)
+                                        for lb in lsm.late_details:
+                                            try:
+                                                actual_hours_value = float(lb.actual_hours)
+                                                hours_part = int(actual_hours_value)
+                                                minutes_part = int((actual_hours_value - hours_part) * 60)
+                                                l_actual_hours = timedelta(hours=hours_part, minutes=minutes_part)
+                                                
+                                                if countable_late_time > l_actual_hours:
+                                                    prev_hours = lb.counted_hours
+                                                elif countable_late_time == l_actual_hours:
+                                                    prev_hours = lb.counted_hours
+                                                    break
+                                                else:
+                                                    break
+                                            except Exception as e:
+                                                frappe.log_error(f"Error processing late slab detail: {e}")
+                                                continue
+                                        
+                                        # Apply the slab calculation result
+                                        if prev_hours:
+                                            try:
+                                                counted_hours_value = float(prev_hours)
+                                                hours_part = int(counted_hours_value)
+                                                minutes_part = int((counted_hours_value - hours_part) * 60)
+                                                l_counted_hours = timedelta(hours=hours_part, minutes=minutes_part)
+                                                
+                                                total_seconds = int(l_counted_hours.total_seconds())
+                                                hours = total_seconds // 3600
+                                                minutes = (total_seconds % 3600) // 60
+                                                seconds = total_seconds % 60
+                                                data.late_coming_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
+                                            except Exception as e:
+                                                frappe.log_error(f"Error converting counted hours: {e}")
+                                        else:
+                                            l_counted_hours = countable_late_time
+                                            total_seconds = int(l_counted_hours.total_seconds())
+                                            hours = total_seconds // 3600
+                                            minutes = (total_seconds % 3600) // 60
+                                            seconds = total_seconds % 60
+                                            data.late_coming_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
+                                        
+                                        # Accumulate total late coming hours
+                                        total_late_coming_hours = total_late_coming_hours + l_counted_hours
+                                    else:
+                                        data.late_coming_hours = "00:00:00"
+                                else:
+                                    # If check_in_1 <= shift_in, show 00:00:00
+                                    data.late_coming_hours = "00:00:00"
+                            else:
+                                # If check_in_1 or shift_in is missing, show 00:00:00
+                                data.late_coming_hours = "00:00:00"
+                                
+                        except Exception as e:
+                            frappe.log_error(f"Error in late slab processing: {e}")
+
+
+
+                        if first_in_time >= late_mark and first_in_time < half_day_time:
+                            data.late = 1
+                            
                         else:
-                            late_coming_duration = first_in_time - day_data.start_time
-
-                        # Ensure late_coming_duration is non-negative
-                        if late_coming_duration < timedelta(0):
-                            late_coming_duration = timedelta(0)  # Set to zero for early arrival
-
-                        # Extract hours, minutes, and seconds
-                        hours, remainder = divmod(late_coming_duration.total_seconds(), 3600)
-                        minutes, seconds = divmod(remainder, 60)
-
-                        # Format as `hh:mm:ss` and set `late_coming_hours` field
-                        data.late_coming_hours = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
-                    else:
-                        data.late = 0
-                        # data.late_coming_hours = "00:00:00"
+                            data.late = 0
+                            # data.late_coming_hours = "00:00:00"
 
                     # if last >= late_mark and first_in_time < half_day_time:
                     #     data.early = 1
@@ -1420,15 +1502,11 @@ class EmployeeAttendance(Document):
                 
                 
 
-                if data.late1 == 1:  # This is the correct way to check for late1 in the child table data
-                        self.late_comparision += 1
-                        data.late = 0
-                        data.late_coming_hours = None
-                        total_lates -= 1
-                
-                
-                
-
+                # if data.late1 == 1:  # This is the correct way to check for late1 in the child table data
+                #         self.late_comparision += 1
+                #         data.late = 0
+                #         data.late_coming_hours = None
+                #         total_lates -= 1
                 
 
 
@@ -1473,9 +1551,9 @@ class EmployeeAttendance(Document):
                     # self.total_lates = 0
                     data.late = 0 
                     # late coming 
-                if employee.custom_late_coming_unmark == 1:
-                    data.late_coming_hours = None
-                    data.short_hours = 0
+                # if employee.custom_late_coming_unmark == 1:
+                #     data.late_coming_hours = None
+                #     data.short_hours = 0
 
 
                 shift1 = None
@@ -2782,41 +2860,87 @@ class EmployeeAttendance(Document):
                     # result_time = (datetime.min + result_delta).time()
                     # data.early_over_time = result_time
                     # data.check = result_time
+                
 
                 
 
-                if day_data and not holiday_flag:
-                    if day_data.late_slab and data.late_coming_hours:
+                # Late slab calculation - should run for ALL late scenarios, not just specific conditions
+                # if day_data and day_data.late_slab and data.late_coming_hours:
+                    try:
                         lsm = frappe.get_doc("Late Slab", day_data.late_slab)
-                        if data.late_coming_hours > timedelta(hours=0,minutes=int(lsm.late_slab_minutes)):
-                            data.late_coming_hours = data.late_coming_hours - timedelta(hours=0,minutes=int(lsm.late_slab_minutes))
+                        
+                        # Handle grace period
+                        grace_minutes = 0
+                        if hasattr(lsm, 'late_slab_minutes') and lsm.late_slab_minutes:
+                            grace_minutes = int(lsm.late_slab_minutes)
+                        elif hasattr(lsm, 'calculate_late_hours_after') and lsm.calculate_late_hours_after:
+                            grace_minutes = int(float(lsm.calculate_late_hours_after) * 60)
+                        
+                        # Convert late_coming_hours from string to timedelta
+                        if isinstance(data.late_coming_hours, str):
+                            time_parts = data.late_coming_hours.split(':')
+                            hours = int(time_parts[0])
+                            minutes = int(time_parts[1]) 
+                            seconds = int(time_parts[2]) if len(time_parts) > 2 else 0
+                            late_coming_timedelta = timedelta(hours=hours, minutes=minutes, seconds=seconds)
+                        else:
+                            late_coming_timedelta = data.late_coming_hours
+                        
+                        # Apply grace period only if late time exceeds threshold
+                        if late_coming_timedelta > timedelta(hours=0, minutes=grace_minutes):
+                            countable_late_time = late_coming_timedelta - timedelta(hours=0, minutes=grace_minutes)
+                            
+                            # Slab calculation logic
                             prev_hours = None
+                            l_counted_hours = timedelta(0)
                             for lb in lsm.late_details:
-                                l_hrs = str(lb.actual_hours).split(".")[0]
-                                l_mnt = str(lb.actual_hours).split(".")[1]
-                                l_mnt  = "."+l_mnt
-                                l_mnt = float(l_mnt)*60
-                                l_actual_hours = timedelta(hours=int(l_hrs),minutes=int(l_mnt))
-                                
-                                if data.late_coming_hours > l_actual_hours:
-                                    prev_hours = lb.counted_hours
-                                elif data.late_coming_hours == l_actual_hours:
-                                    prev_hours = lb.counted_hours
-                                    break
-                                else:
-                                    break
+                                try:
+                                    actual_hours_value = float(lb.actual_hours)
+                                    hours_part = int(actual_hours_value)
+                                    minutes_part = int((actual_hours_value - hours_part) * 60)
+                                    l_actual_hours = timedelta(hours=hours_part, minutes=minutes_part)
+                                    
+                                    if countable_late_time > l_actual_hours:
+                                        prev_hours = lb.counted_hours
+                                    elif countable_late_time == l_actual_hours:
+                                        prev_hours = lb.counted_hours
+                                        break
+                                    else:
+                                        break
+                                except Exception as e:
+                                    frappe.log_error(f"Error processing late slab detail: {e}")
+                                    continue
+                            
+                            # Apply the slab calculation result
                             if prev_hours:
-                                l_hrs = str(prev_hours).split(".")[0]
-                                l_mnt = str(prev_hours).split(".")[1]
-                                l_mnt  = "."+l_mnt
-                                l_mnt = float(l_mnt)*60
-                                l_counted_hours = timedelta(hours=int(l_hrs),minutes=int(l_mnt))
-                                data.late_coming_hours = l_counted_hours
-                            total_late_coming_hours = total_late_coming_hours + data.late_coming_hours
-                    else:
-                        if data.late_coming_hours:
-                            pass
-                            # total_late_coming_hours = total_late_coming_hours + data.late_coming_hours
+                                try:
+                                    counted_hours_value = float(prev_hours)
+                                    hours_part = int(counted_hours_value)
+                                    minutes_part = int((counted_hours_value - hours_part) * 60)
+                                    l_counted_hours = timedelta(hours=hours_part, minutes=minutes_part)
+                                    
+                                    total_seconds = int(l_counted_hours.total_seconds())
+                                    hours = total_seconds // 3600
+                                    minutes = (total_seconds % 3600) // 60
+                                    seconds = total_seconds % 60
+                                    data.late_coming_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
+                                except Exception as e:
+                                    frappe.log_error(f"Error converting counted hours: {e}")
+                            else:
+                                l_counted_hours = countable_late_time
+                                total_seconds = int(l_counted_hours.total_seconds())
+                                hours = total_seconds // 3600
+                                minutes = (total_seconds % 3600) // 60
+                                seconds = total_seconds % 60
+                                data.late_coming_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
+                            
+                            # Accumulate total late coming hours
+                            total_late_coming_hours = total_late_coming_hours + l_counted_hours
+                        else:
+                            data.late_coming_hours = "00:00:00"
+                            
+                    except Exception as e:
+                        frappe.log_error(f"Error in late slab processing: {e}")
 
 
 
@@ -2904,7 +3028,7 @@ class EmployeeAttendance(Document):
                             data.early_going_hours = None
                     if data.late_coming_hours and total_late_coming_hours != timedelta(hours=0, minutes=0, seconds=0):
                             total_late_coming_hours = total_late_coming_hours - data.late_coming_hours
-                            data.late_coming_hours = None
+                            # data.late_coming_hours = None
 
                     if data.early:
                         total_early -= 1
@@ -3078,31 +3202,31 @@ def check_sanwich_after_holiday(self, previous,data,hr_settings,index):
 
 
 def get_holidays_for_employee(
-	employee, start_date, end_date, raise_exception=True, only_non_weekly=False
+    employee, start_date, end_date, raise_exception=True, only_non_weekly=False
 ):
-	"""Get Holidays for a given employee
+    """Get Holidays for a given employee
 
-	`employee` (str)
-	`start_date` (str or datetime)
-	`end_date` (str or datetime)
-	`raise_exception` (bool)
-	`only_non_weekly` (bool)
+    `employee` (str)
+    `start_date` (str or datetime)
+    `end_date` (str or datetime)
+    `raise_exception` (bool)
+    `only_non_weekly` (bool)
 
-	return: list of dicts with `holiday_date` and `description`
-	"""
-	holiday_list = get_holiday_list_for_employee(employee, raise_exception=raise_exception)
+    return: list of dicts with `holiday_date` and `description`
+    """
+    holiday_list = get_holiday_list_for_employee(employee, raise_exception=raise_exception)
 
-	if not holiday_list:
-		return []
+    if not holiday_list:
+        return []
 
-	filters = {"parent": holiday_list, "holiday_date": ("between", [start_date, end_date])}
+    filters = {"parent": holiday_list, "holiday_date": ("between", [start_date, end_date])}
 
-	if only_non_weekly:
-		filters["weekly_off"] = False
+    if only_non_weekly:
+        filters["weekly_off"] = False
 
-	holidays = frappe.get_all("Holiday", fields=["description","public_holiday", "weekly_off","holiday_date"], filters=filters)
+    holidays = frappe.get_all("Holiday", fields=["description","public_holiday", "weekly_off","holiday_date"], filters=filters)
 
-	return holidays
+    return holidays
 
 
 
@@ -3148,7 +3272,13 @@ def late_relaxation_due_to_late_sitting(self, previous, data, hr_settings, index
                             
                             if relaxation_hours > timedelta(0):
                                 hours_seconds = relaxation_hours.total_seconds()
-                                hh_mm_ss = str(timedelta(seconds=int(hours_seconds)))
+                                
+                                # ***CORRECTION APPLIED HERE: Explicitly formatting to HH:MM:SS***
+                                total_seconds = int(hours_seconds)
+                                hours = total_seconds // 3600
+                                minutes = (total_seconds % 3600) // 60
+                                seconds = total_seconds % 60
+                                hh_mm_ss = f"{hours:02}:{minutes:02}:{seconds:02}"
                                 self.table1[ind + 1].data3 = hh_mm_ss  # Store relaxation hours in data3
 
                                 # Loop through table1 to compare late_coming_hours with data3
