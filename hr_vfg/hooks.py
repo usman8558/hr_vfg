@@ -9,6 +9,11 @@ app_color = "grey"
 app_email = "shahrukh@telniasoft.com"
 app_license = "MIT"
 
+fixtures = [
+    {"doctype": "Server Script"},
+]
+
+
 # Includes in <head>
 # ------------------
 
@@ -45,7 +50,7 @@ doctype_js = {
 
 # website user home page (by Role)
 # role_home_page = {
-#	"Role": "home_page"
+#   "Role": "home_page"
 # }
 
 # Generators
@@ -77,11 +82,11 @@ doctype_js = {
 # Permissions evaluated in scripted ways
 
 # permission_query_conditions = {
-#	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
+#   "Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
 # }
 #
 # has_permission = {
-#	"Event": "frappe.desk.doctype.event.event.has_permission",
+#   "Event": "frappe.desk.doctype.event.event.has_permission",
 # }
 
 # DocType Class
@@ -89,7 +94,7 @@ doctype_js = {
 # Override standard doctype classes
 
 override_doctype_class = {
-	"Payroll Entry": "hr_vfg.hr_ventureforce_global.payroll_entry_override.CustomPayrollEntry",
+    "Payroll Entry": "hr_vfg.hr_ventureforce_global.payroll_entry_override.CustomPayrollEntry",
     "Salary Slip":"hr_vfg.hr_ventureforce_global.salary_slip_override.CustomSalarySlip"
 }
 
@@ -98,9 +103,9 @@ override_doctype_class = {
 # Hook on document methods and events
 
 doc_events = {
-	"Salary Slip": {
-		"validate": "hr_vfg.hr_ventureforce_global.salary_slip_override.add_leaves",
-	}
+    "Salary Slip": {
+        "validate": "hr_vfg.hr_ventureforce_global.salary_slip_override.add_leaves",
+    }
 }
 
 # Scheduled Tasks
@@ -108,10 +113,10 @@ doc_events = {
 
 scheduler_events = {
     "cron": {
-	"0 */5 * * *": [
-			"hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_from_hook"
-		]
-	}
+    "0 */5 * * *": [
+            "hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_from_hook"
+        ]
+    }
 }
 
 
@@ -134,36 +139,36 @@ scheduler_events = {
 
 # scheduler_events = {
     # "cron": {
-	# 	"0 04 * * *": [
-	# 		"hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_from_hook"
-	# 	]
-	# },
+    #   "0 04 * * *": [
+    #       "hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_from_hook"
+    #   ]
+    # },
     # "cron": {
-	# 	"0 11 * * *": [
-	# 		"hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_from_hook"
-	# 	]
-	# },
+    #   "0 11 * * *": [
+    #       "hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_from_hook"
+    #   ]
+    # },
     # "cron": {
-	# 	"*/1 * * * *": [
-	# 		"hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_from_hook"
-	# 	]
-	# }
-	# "all": [
-	# 	"hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_from_hook",
+    #   "*/1 * * * *": [
+    #       "hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_from_hook"
+    #   ]
+    # }
+    # "all": [
+    #   "hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_from_hook",
     #     "hr_vfg.hr_ventureforce_global.doctype.employee_attendance.attendance_connector.get_attendance_long"
-	# ]
-#	"daily": [
-#		"hr_vfg.tasks.daily"
-#	],
-#	"hourly": [
-#		"hr_vfg.tasks.hourly"
-#	],
-#	"weekly": [
-#		"hr_vfg.tasks.weekly"
-#	]
-#	"monthly": [
-#		"hr_vfg.tasks.monthly"
-#	]
+    # ]
+#   "daily": [
+#       "hr_vfg.tasks.daily"
+#   ],
+#   "hourly": [
+#       "hr_vfg.tasks.hourly"
+#   ],
+#   "weekly": [
+#       "hr_vfg.tasks.weekly"
+#   ]
+#   "monthly": [
+#       "hr_vfg.tasks.monthly"
+#   ]
 # }
 
 # Testing
@@ -175,14 +180,14 @@ scheduler_events = {
 # ------------------------------
 #
 override_whitelisted_methods = {
-	"hrms.payroll.doctype.payroll_entry.payroll_entry.create_salary_slips": "hr_vfg.hr_ventureforce_global.custom_events.create_salary_slips"
+    "hrms.payroll.doctype.payroll_entry.payroll_entry.create_salary_slips": "hr_vfg.hr_ventureforce_global.custom_events.create_salary_slips"
 }
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
 # override_doctype_dashboards = {
-#	"Task": "hr_vfg.task.get_dashboard_data"
+#   "Task": "hr_vfg.task.get_dashboard_data"
 # }
 
 # exempt linked doctypes from being automatically cancelled
@@ -194,30 +199,30 @@ override_whitelisted_methods = {
 # --------------------
 
 user_data_fields = [
-	{
-		"doctype": "{doctype_1}",
-		"filter_by": "{filter_by}",
-		"redact_fields": ["{field_1}", "{field_2}"],
-		"partial": 1,
-	},
-	{
-		"doctype": "{doctype_2}",
-		"filter_by": "{filter_by}",
-		"partial": 1,
-	},
-	{
-		"doctype": "{doctype_3}",
-		"strict": False,
-	},
-	{
-		"doctype": "{doctype_4}"
-	}
+    {
+        "doctype": "{doctype_1}",
+        "filter_by": "{filter_by}",
+        "redact_fields": ["{field_1}", "{field_2}"],
+        "partial": 1,
+    },
+    {
+        "doctype": "{doctype_2}",
+        "filter_by": "{filter_by}",
+        "partial": 1,
+    },
+    {
+        "doctype": "{doctype_3}",
+        "strict": False,
+    },
+    {
+        "doctype": "{doctype_4}"
+    }
 ]
 
 # Authentication and authorization
 # --------------------------------
 
 # auth_hooks = [
-#	"hr_vfg.auth.validate"
+#   "hr_vfg.auth.validate"
 # ]
 
