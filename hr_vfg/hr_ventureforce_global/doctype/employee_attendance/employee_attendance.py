@@ -1104,124 +1104,173 @@ class EmployeeAttendance(Document):
                     # if data.late1 == 1:  # This is the correct way to check for late1 in the child table data
                     #     data.late = 0
 
-                    #LATE SLAB CODE (USMAN)
-                    if day_data and day_data.late_slab and data.shift:  # Removed data.late condition
-                        try:
-                            lsm = frappe.get_doc("Late Slab", day_data.late_slab)
-                            
-                            # Handle grace period
-                            grace_minutes = 0
-                            if hasattr(lsm, 'late_slab_minutes') and lsm.late_slab_minutes:
-                                grace_minutes = int(lsm.late_slab_minutes)
-                            elif hasattr(lsm, 'calculate_late_hours_after') and lsm.calculate_late_hours_after:
-                                grace_minutes = int(float(lsm.calculate_late_hours_after) * 60)
-                            
-                            # DIRECTLY CALCULATE DIFFERENCE - check if check_in_1 > shift_in
-                            if data.check_in_1 and data.shift_in:
-                                # Convert check_in_1 and shift_in to datetime objects
-                                check_in_time = datetime.strptime(data.check_in_1, "%H:%M:%S")
-                                shift_in_time = datetime.strptime(data.shift_in, "%H:%M:%S")
-                                
-                                # Calculate difference ONLY if check_in_1 > shift_in
-                                if check_in_time > shift_in_time:
-                                    if day_data.calculate_late_hours == "Late Mark":
-                                        # Use late_mark instead of shift_in if configured
-                                        late_mark_time = datetime.strptime(str(late_mark), "%H:%M:%S")
-                                        late_coming_duration = check_in_time - late_mark_time
-                                    else:
-                                        late_coming_duration = check_in_time - shift_in_time
+                
+
+
+
+                    #LATE SLAB (usman)
+                    if first_in_time >= late_mark and first_in_time < half_day_time:
+                        data.late = 1
+                        
+                        # Calculate late coming hours only if employee is late
+                        if day_data and data.shift:
+                            try:
+                                # Check if late slab is defined
+                                if day_data.late_slab:
+                                    lsm = frappe.get_doc("Late Slab", day_data.late_slab)
                                     
-                                    # Ensure late_coming_duration is non-negative
-                                    if late_coming_duration < timedelta(0):
-                                        late_coming_duration = timedelta(0)
+                                    # Handle grace period
+                                    grace_minutes = 0
+                                    if hasattr(lsm, 'late_slab_minutes') and lsm.late_slab_minutes:
+                                        grace_minutes = int(lsm.late_slab_minutes)
+                                    elif hasattr(lsm, 'calculate_late_hours_after') and lsm.calculate_late_hours_after:
+                                        grace_minutes = int(float(lsm.calculate_late_hours_after) * 60)
                                     
-                                    late_coming_timedelta = late_coming_duration
-                                    
-                                    # Apply grace period only if late time exceeds threshold
-                                    if late_coming_timedelta > timedelta(hours=0, minutes=grace_minutes):
-                                        countable_late_time = late_coming_timedelta - timedelta(hours=0, minutes=grace_minutes)
+                                    # DIRECTLY CALCULATE DIFFERENCE - check if check_in_1 > shift_in
+                                    if data.check_in_1 and data.shift_in:
+                                        # Convert check_in_1 and shift_in to datetime objects
+                                        check_in_time = datetime.strptime(data.check_in_1, "%H:%M:%S")
+                                        shift_in_time = datetime.strptime(data.shift_in, "%H:%M:%S")
                                         
-                                        # Slab calculation logic
-                                        prev_hours = None
-                                        l_counted_hours = timedelta(0)
-                                        for lb in lsm.late_details:
-                                            try:
-                                                actual_hours_value = float(lb.actual_hours)
-                                                hours_part = int(actual_hours_value)
-                                                minutes_part = int((actual_hours_value - hours_part) * 60)
-                                                l_actual_hours = timedelta(hours=hours_part, minutes=minutes_part)
+                                        # Calculate difference ONLY if check_in_1 > shift_in
+                                        if check_in_time > shift_in_time:
+                                            if day_data.calculate_late_hours == "Late Mark":
+                                                # Use late_mark instead of shift_in if configured
+                                                late_mark_time = datetime.strptime(str(late_mark), "%H:%M:%S")
+                                                late_coming_duration = check_in_time - late_mark_time
+                                            else:
+                                                late_coming_duration = check_in_time - shift_in_time
+                                            
+                                            # Ensure late_coming_duration is non-negative
+                                            if late_coming_duration < timedelta(0):
+                                                late_coming_duration = timedelta(0)
+                                            
+                                            late_coming_timedelta = late_coming_duration
+                                            
+                                            # Apply grace period only if late time exceeds threshold
+                                            if late_coming_timedelta > timedelta(hours=0, minutes=grace_minutes):
+                                                countable_late_time = late_coming_timedelta - timedelta(hours=0, minutes=grace_minutes)
                                                 
-                                                if countable_late_time > l_actual_hours:
-                                                    prev_hours = lb.counted_hours
-                                                elif countable_late_time == l_actual_hours:
-                                                    prev_hours = lb.counted_hours
-                                                    break
+                                                # Slab calculation logic
+                                                prev_hours = None
+                                                l_counted_hours = timedelta(0)
+                                                for lb in lsm.late_details:
+                                                    try:
+                                                        actual_hours_value = float(lb.actual_hours)
+                                                        hours_part = int(actual_hours_value)
+                                                        minutes_part = int((actual_hours_value - hours_part) * 60)
+                                                        l_actual_hours = timedelta(hours=hours_part, minutes=minutes_part)
+                                                        
+                                                        if countable_late_time > l_actual_hours:
+                                                            prev_hours = lb.counted_hours
+                                                        elif countable_late_time == l_actual_hours:
+                                                            prev_hours = lb.counted_hours
+                                                            break
+                                                        else:
+                                                            break
+                                                    except Exception as e:
+                                                        frappe.log_error(f"Error processing late slab detail: {e}")
+                                                        continue
+                                                
+                                                # Apply the slab calculation result
+                                                if prev_hours:
+                                                    try:
+                                                        counted_hours_value = float(prev_hours)
+                                                        hours_part = int(counted_hours_value)
+                                                        minutes_part = int((counted_hours_value - hours_part) * 60)
+                                                        l_counted_hours = timedelta(hours=hours_part, minutes=minutes_part)
+                                                        
+                                                        total_seconds = int(l_counted_hours.total_seconds())
+                                                        hours = total_seconds // 3600
+                                                        minutes = (total_seconds % 3600) // 60
+                                                        seconds = total_seconds % 60
+                                                        data.late_coming_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
+                                                    except Exception as e:
+                                                        frappe.log_error(f"Error converting counted hours: {e}")
                                                 else:
-                                                    break
-                                            except Exception as e:
-                                                frappe.log_error(f"Error processing late slab detail: {e}")
-                                                continue
-                                        
-                                        # Apply the slab calculation result
-                                        if prev_hours:
-                                            try:
-                                                counted_hours_value = float(prev_hours)
-                                                hours_part = int(counted_hours_value)
-                                                minutes_part = int((counted_hours_value - hours_part) * 60)
-                                                l_counted_hours = timedelta(hours=hours_part, minutes=minutes_part)
+                                                    l_counted_hours = countable_late_time
+                                                    total_seconds = int(l_counted_hours.total_seconds())
+                                                    hours = total_seconds // 3600
+                                                    minutes = (total_seconds % 3600) // 60
+                                                    seconds = total_seconds % 60
+                                                    data.late_coming_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
                                                 
-                                                total_seconds = int(l_counted_hours.total_seconds())
-                                                hours = total_seconds // 3600
-                                                minutes = (total_seconds % 3600) // 60
-                                                seconds = total_seconds % 60
-                                                data.late_coming_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
-                                            except Exception as e:
-                                                frappe.log_error(f"Error converting counted hours: {e}")
+                                                # Accumulate total late coming hours
+                                                total_late_coming_hours = total_late_coming_hours + l_counted_hours
+                                            else:
+                                                data.late_coming_hours = "00:00:00"
                                         else:
-                                            l_counted_hours = countable_late_time
-                                            total_seconds = int(l_counted_hours.total_seconds())
+                                            # If check_in_1 <= shift_in, show 00:00:00
+                                            data.late_coming_hours = "00:00:00"
+                                    else:
+                                        # If check_in_1 or shift_in is missing, show 00:00:00
+                                        data.late_coming_hours = "00:00:00"
+                                        
+                                else:
+                                    # NO LATE SLAB DEFINED - SIMPLE DIFFERENCE CALCULATION
+                                    if data.check_in_1 and data.shift_in:
+                                        # Convert check_in_1 and shift_in to datetime objects
+                                        check_in_time = datetime.strptime(data.check_in_1, "%H:%M:%S")
+                                        shift_in_time = datetime.strptime(data.shift_in, "%H:%M:%S")
+                                        
+                                        # Calculate difference ONLY if check_in_1 > shift_in
+                                        if check_in_time > shift_in_time:
+                                            if day_data.calculate_late_hours == "Late Mark":
+                                                # Use late_mark instead of shift_in if configured
+                                                late_mark_time = datetime.strptime(str(late_mark), "%H:%M:%S")
+                                                late_coming_duration = check_in_time - late_mark_time
+                                            else:
+                                                late_coming_duration = check_in_time - shift_in_time
+                                            
+                                            # Ensure late_coming_duration is non-negative
+                                            if late_coming_duration < timedelta(0):
+                                                late_coming_duration = timedelta(0)
+                                            
+                                            # Extract hours, minutes, and seconds
+                                            total_seconds = int(late_coming_duration.total_seconds())
                                             hours = total_seconds // 3600
                                             minutes = (total_seconds % 3600) // 60
                                             seconds = total_seconds % 60
+                                            
                                             data.late_coming_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
-                                        
-                                        # Accumulate total late coming hours
-                                        total_late_coming_hours = total_late_coming_hours + l_counted_hours
+                                            
+                                            # Accumulate total late coming hours (simple addition)
+                                            total_late_coming_hours = total_late_coming_hours + late_coming_duration
+                                        else:
+                                            # If check_in_1 <= shift_in, show 00:00:00
+                                            data.late_coming_hours = "00:00:00"
                                     else:
+                                        # If check_in_1 or shift_in is missing, show 00:00:00
                                         data.late_coming_hours = "00:00:00"
+                                        
+                            except Exception as e:
+                                frappe.log_error(f"Error in late calculation processing: {e}")
+                        
+                        # Handle case without shift but with late mark
+                        elif not day.shift and first_in_time >= late_mark:
+                            # Simple calculation for non-shift days with late mark
+                            if data.check_in_1:
+                                check_in_time = datetime.strptime(data.check_in_1, "%H:%M:%S")
+                                late_mark_time = datetime.strptime(str(late_mark), "%H:%M:%S")
+                                
+                                if check_in_time > late_mark_time:
+                                    late_coming_duration = check_in_time - late_mark_time
+                                    
+                                    if late_coming_duration < timedelta(0):
+                                        late_coming_duration = timedelta(0)
+                                    
+                                    hours, remainder = divmod(late_coming_duration.total_seconds(), 3600)
+                                    minutes, seconds = divmod(remainder, 60)
+                                    data.late_coming_hours = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
                                 else:
-                                    # If check_in_1 <= shift_in, show 00:00:00
                                     data.late_coming_hours = "00:00:00"
                             else:
-                                # If check_in_1 or shift_in is missing, show 00:00:00
                                 data.late_coming_hours = "00:00:00"
-                                
-                        except Exception as e:
-                            frappe.log_error(f"Error in late slab processing: {e}")
 
-
-
-                        if first_in_time >= late_mark and first_in_time < half_day_time:
-                            data.late = 1
-                            if not day.shift:
-                                # Calculate late_coming_duration based on the chosen condition
-                                if day_data.calculate_late_hours == "Late Mark":
-                                    late_coming_duration = first_in_time - late_mark
-                                else:
-                                    late_coming_duration = first_in_time - day_data.start_time
-
-                                # Ensure late_coming_duration is non-negative
-                                if late_coming_duration < timedelta(0):
-                                    late_coming_duration = timedelta(0)  # Set to zero for early arrival
-
-                                # Extract hours, minutes, and seconds
-                                hours, remainder = divmod(late_coming_duration.total_seconds(), 3600)
-                                minutes, seconds = divmod(remainder, 60)
-
-                                # Format as `hh:mm:ss` and set `late_coming_hours` field
-                                data.late_coming_hours = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
-                        else:
-                            data.late = 0
+                    else:
+                        # Employee is not late
+                        data.late = 0
+                        data.late_coming_hours = "00:00:00"
 
                     # if last >= late_mark and first_in_time < half_day_time:
                     #     data.early = 1
@@ -1295,6 +1344,144 @@ class EmployeeAttendance(Document):
 
                         if (out_diff.total_seconds()/60) > 00.00 and (out_diff.total_seconds()/60) <= float(day_data.max_early):
                             if first_out_time < day_data.end_time:
+                                #Early Slab (Usman)
+                                if data.shift_out and data.check_out_1 and data.shift_out > data.check_out_1:
+                                    if day_data and day_data.early_slab and data.shift:  # Check if early slab exists
+                                        try:
+                                            esm = frappe.get_doc("Early Slab", day_data.early_slab)
+                                            
+                                            # Handle grace period for early departure
+                                            grace_minutes = 0
+                                            if hasattr(esm, 'early_slab_minutes') and esm.early_slab_minutes:
+                                                grace_minutes = int(esm.early_slab_minutes)
+                                            elif hasattr(esm, 'calculate_early_hours_before') and esm.calculate_early_hours_before:
+                                                grace_minutes = int(float(esm.calculate_early_hours_before) * 60)
+                                            
+                                            # Convert check_out_1 and shift_out to datetime objects
+                                            check_out_time = datetime.strptime(data.check_out_1, "%H:%M:%S")
+                                            shift_out_time = datetime.strptime(data.shift_out, "%H:%M:%S")
+                                            
+                                            # Calculate difference ONLY if shift_out > check_out_1
+                                            if shift_out_time > check_out_time:
+                                                # Calculate early departure duration
+                                                if hasattr(day_data, 'calculate_early_hours') and day_data.calculate_early_hours == "Early Mark":
+                                                    # If you have early_mark concept, use it here
+                                                    early_mark_time = datetime.strptime(str(early_mark), "%H:%M:%S")  # Define your early_mark
+                                                    early_going_duration = early_mark_time - check_out_time
+                                                else:
+                                                    early_going_duration = shift_out_time - check_out_time
+                                                
+                                                # Ensure early_going_duration is non-negative
+                                                if early_going_duration < timedelta(0):
+                                                    early_going_duration = timedelta(0)
+                                                
+                                                early_going_timedelta = early_going_duration
+                                                
+                                                # Apply grace period only if early time exceeds threshold
+                                                if early_going_timedelta > timedelta(hours=0, minutes=grace_minutes):
+                                                    countable_early_time = early_going_timedelta - timedelta(hours=0, minutes=grace_minutes)
+                                                    
+                                                    # Slab calculation logic for early departure
+                                                    prev_hours = None
+                                                    e_counted_hours = timedelta(0)
+                                                    for eb in esm.early_details:  # Assuming similar structure as late_details
+                                                        try:
+                                                            actual_hours_value = float(eb.actual_hours)
+                                                            hours_part = int(actual_hours_value)
+                                                            minutes_part = int((actual_hours_value - hours_part) * 60)
+                                                            e_actual_hours = timedelta(hours=hours_part, minutes=minutes_part)
+                                                            
+                                                            if countable_early_time > e_actual_hours:
+                                                                prev_hours = eb.counted_hours
+                                                            elif countable_early_time == e_actual_hours:
+                                                                prev_hours = eb.counted_hours
+                                                                break
+                                                            else:
+                                                                break
+                                                        except Exception as e:
+                                                            frappe.log_error(f"Error processing early slab detail: {e}")
+                                                            continue
+                                                    
+                                                    # Apply the slab calculation result
+                                                    if prev_hours:
+                                                        try:
+                                                            counted_hours_value = float(prev_hours)
+                                                            hours_part = int(counted_hours_value)
+                                                            minutes_part = int((counted_hours_value - hours_part) * 60)
+                                                            e_counted_hours = timedelta(hours=hours_part, minutes=minutes_part)
+                                                            
+                                                            total_seconds = int(e_counted_hours.total_seconds())
+                                                            hours = total_seconds // 3600
+                                                            minutes = (total_seconds % 3600) // 60
+                                                            seconds = total_seconds % 60
+                                                            data.early_going_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
+                                                        except Exception as e:
+                                                            frappe.log_error(f"Error converting early counted hours: {e}")
+                                                    else:
+                                                        e_counted_hours = countable_early_time
+                                                        total_seconds = int(e_counted_hours.total_seconds())
+                                                        hours = total_seconds // 3600
+                                                        minutes = (total_seconds % 3600) // 60
+                                                        seconds = total_seconds % 60
+                                                        data.early_going_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
+                                                    
+                                                    
+                                                else:
+                                                    data.early_going_hours = "00:00:00"
+                                                    
+                                            else:
+                                                # If shift_out <= check_out_1, show 00:00:00
+                                                data.early_going_hours = "00:00:00"
+                                                data.early = 0
+                                                
+                                        except Exception as e:
+                                            frappe.log_error(f"Error in early slab processing: {e}")
+                                            # Fallback to simple calculation if slab processing fails
+                                            self.calculate_simple_early_hours(data, day_data)
+                                    
+                                    else:
+                                        # If no early slab exists, apply simple logic
+                                        self.calculate_simple_early_hours(data, day_data)
+
+                                else:
+                                    # If shift_out is not greater than check_out_1, no early departure
+                                    data.early_going_hours = "00:00:00"
+                                    data.early = 0
+
+                                # Helper method for simple early hours calculation
+                                def calculate_simple_early_hours(self, data, day_data):
+                                    """Calculate early going hours without slab logic"""
+                                    try:
+                                        if data.shift_out and data.check_out_1 and data.shift_out > data.check_out_1:
+                                            check_out_time = datetime.strptime(data.check_out_1, "%H:%M:%S")
+                                            shift_out_time = datetime.strptime(data.shift_out, "%H:%M:%S")
+                                            
+                                            # Calculate early departure duration
+                                            if hasattr(day_data, 'calculate_early_hours') and day_data.calculate_early_hours == "Early Mark":
+                                                # Use early_mark if defined
+                                                early_mark_time = datetime.strptime(str(early_mark), "%H:%M:%S")
+                                                early_going_duration = early_mark_time - check_out_time
+                                            else:
+                                                early_going_duration = shift_out_time - check_out_time
+                                            
+                                            # Ensure duration is non-negative
+                                            if early_going_duration < timedelta(0):
+                                                early_going_duration = timedelta(0)
+                                            
+                                            # Format as hh:mm:ss
+                                            total_seconds = int(early_going_duration.total_seconds())
+                                            hours = total_seconds // 3600
+                                            minutes = (total_seconds % 3600) // 60
+                                            seconds = total_seconds % 60
+                                            data.early_going_hours = f"{hours:02}:{minutes:02}:{seconds:02}"
+                                            
+                                        else:
+                                            data.early_going_hours = "00:00:00"
+                                            data.early = 0
+                                    except Exception as e:
+                                        frappe.log_error(f"Error in simple early hours calculation: {e}")
+                                        data.early_going_hours = "00:00:00"
+                                        
                                 data.early = 1
                         elif (out_diff.total_seconds()/60) >= float(day_data.max_early) and (out_diff.total_seconds()/60) < float(day_data.max_half_day):
                             
